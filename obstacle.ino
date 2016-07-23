@@ -334,37 +334,67 @@ void strategy(){
     digitalWrite(28, LOW);
     digitalWrite(30, LOW);
     delay(100);
-    digitalWrite(24, LOW);
-    digitalWrite(26, HIGH);
-    digitalWrite(28, HIGH);
-    digitalWrite(30, LOW);
+    digitalWrite(24, HIGH);
+    digitalWrite(26, LOW);
+    digitalWrite(28, LOW);
+    digitalWrite(30, HIGH);
     while(obstacle[0] < x_safe){
-      leftspeed_t = 150;
-      rightspeed_t = 150;
+      leftspeed_t = 100;
+      rightspeed_t = 100;
     }
     digitalWrite(24, LOW);
     digitalWrite(26, LOW);
     digitalWrite(28, LOW);
     digitalWrite(30, LOW);
     delay(100);
-    digitalWrite(24, HIGH);
+    digitalWrite(24, LOW);
+    digitalWrite(26, HIGH);
+    digitalWrite(28, LOW);
+    digitalWrite(30, HIGH);
+    leftspeed_t = 100;
+    rightspeed_t = 100;
+  }
+  if(obstacle[1] < x_safe){
+    digitalWrite(24, LOW);
     digitalWrite(26, LOW);
-    int flag = 0;
-    while(flag != 1 && obstacle[3]> lateral_safe){
+    digitalWrite(28, LOW);
+    digitalWrite(30, LOW);
+    delay(100);
+    digitalWrite(28, HIGH);
+    digitalWrite(30, LOW);
+    digitalWrite(24, LOW);
+    digitalWrite(26, HIGH);
+    while(obstacle[1] < x_safe){
+      leftspeed_t = 100;
+      rightspeed_t = 100;
+    }
+    digitalWrite(24, LOW);
+    digitalWrite(26, LOW);
+    digitalWrite(28, LOW);
+    digitalWrite(30, LOW);
+    delay(100);
+    digitalWrite(24, LOW);
+    digitalWrite(26, HIGH);
+    digitalWrite(28, LOW);
+    digitalWrite(30, HIGH);
+    leftspeed_t = 100;
+    rightspeed_t = 100;
+  }
+/*    int flag = 0;
+    while(flag ==0 || obstacle[3]< lateral_safe){
       if(obstacle[3] < lateral_safe){
         flag = 1;
       }
       else{
-        leftspeed_t = 280;
-        rightspeed_t = 280;
+        leftspeed_t = 100;
+        rightspeed_t = 100;
       }
     }
     digitalWrite(24, LOW);
     digitalWrite(26, LOW);
     digitalWrite(28, LOW);
     digitalWrite(30, LOW);
-    delay(100); 
-  }
+    delay(100); */
 }
 
 void IMU(){
