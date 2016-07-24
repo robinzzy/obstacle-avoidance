@@ -1,11 +1,13 @@
 #include "MsTimer2.h"
 #include "I2Cdev.h"
+#include <Wire.h>
+#include <JY901.h>
 #include <SoftwareSerial.h>
 
 const unsigned char safedistance = 0;  //安全距离，mm
 const unsigned char straight = 100;   //人工操控向前时长，ms
 const unsigned char turntime = 100;   //人工操控转向时长，ms
-const int x_safe = 0;   //安全距离
+const int x_safe = 300;   //安全距离
 const int lateral_safe = 0;   //侧向障碍通过阈值距离
 float kp_s = 0.045, ki_s = 0, kd_s = 0.5;   //轮速PID参数
 float kp_t, ki_t, kd_t;   //转角PID参数
@@ -14,6 +16,8 @@ unsigned char theta_t = 0;        //理论航向角，度数
 int leftspeed_t = 0;    //左轮理论轮速，rpm
 int rightspeed_t = 0;   //右轮理论轮速，rpm
 unsigned char theta_r = 0;        //实际航向角，度数
+unsigned char theta_cor = 0;      //角度修正(认为初始零度)
+unsigned char flag_theta=0;       //角度初始化控制参量
 int leftspeed_r = 0;    //左轮实际轮速，rpm
 int rightspeed_r = 0;   //右轮实际轮速，rpm
 int obstacle[] = {0, 0, 0, 0};   //避障检测情况，mm
@@ -23,7 +27,7 @@ unsigned char command = 0;    //人工操控信号
 SoftwareSerial camera(50, 51);
 int i = 0;    //定时器中断内部参数
 int j = 0;
-int fRErr_p_ls = 0;   //储存误差
+int fRErr_p_ls = 0;
 int fRErr_p_rs = 0;
 int fRErr_p_a = 0;
 boolean bTag_30ms = false;   //中断标志
@@ -37,7 +41,7 @@ unsigned long obstacle3_2;
 unsigned long obstacle4_1;
 unsigned long obstacle4_2;
 unsigned char ad_value1=0;  //红外，0为offline，1为online
-unsigned char ad_value2=0;
+unsigned char ad_value2=0;  
 unsigned char ad_value3=0;
 unsigned char ad_value4=0;
 int speedsensor_l[]={0, 0, 0, 0, 0};
@@ -49,19 +53,23 @@ int out_r = 0;
 
 void timer(){
   i+=1;
-  if(i%30==0){
+/*  if(i%30==0){
     bTag_30ms = true;
-  }
-  if(i%50==0){
+  }*/
+  if(i%50==0&&control==false){
     bTag_50ms = true;
+    sensor();
+//    speedPID();
+    bTag_50ms = false;
   }
   if(i==10000){
     i = 0;
   }
 }
 
-void setup() {  
-  Serial.begin(9600);
+void setup() {
+  Serial.begin(9600);  
+  Serial2.begin(9600);
   camera.begin(9600);
   pinMode(8, OUTPUT);   //左轮PWM  左轮A,右轮B
   pinMode(7, OUTPUT);   //右轮PWM
@@ -154,6 +162,9 @@ void humancontrol(){    //人工操作
     if(inByte == 'q'){
       command = 6;
     }
+    if(inByte == 'i'){
+      command = 7;
+    }
   }
   switch(command){
     case 1: 
@@ -226,10 +237,13 @@ void humancontrol(){    //人工操作
       break;
     case 6:
       control = false;
-      digitalWrite(24, HIGH);
-      digitalWrite(26, LOW);
-      digitalWrite(28, HIGH);
-      digitalWrite(30, LOW);
+      digitalWrite(24, LOW);
+      digitalWrite(26, HIGH);
+      digitalWrite(28, LOW);
+      digitalWrite(30, HIGH);
+      break;
+    case 7:
+      flag_theta=0;
       break;
     default:
       break;
@@ -246,6 +260,8 @@ void function1_1(){   //传感器上升沿中断
 void function1_2(){   //传感器下降沿中断
   obstacle1_2 = micros();
   obstacle[0] = (obstacle1_2-obstacle1_1)/5.88;
+  Serial.print(obstacle[0]);
+  Serial.print(',');
   detachInterrupt(digitalPinToInterrupt(18));
 }
 
@@ -258,6 +274,7 @@ void function2_1(){
 void function2_2(){
   obstacle2_2 = micros();
   obstacle[1] = (obstacle2_2-obstacle2_1)/5.88;
+  Serial.println(obstacle[1]);
   detachInterrupt(digitalPinToInterrupt(19));
 }
 
@@ -328,7 +345,7 @@ void sensor(){
 }
 
 void strategy(){
-  if(obstacle[0] < x_safe){
+  if(obstacle[0] < x_safe&&obstacle[1] < x_safe){
     digitalWrite(24, LOW);
     digitalWrite(26, LOW);
     digitalWrite(28, LOW);
@@ -339,8 +356,9 @@ void strategy(){
     digitalWrite(28, LOW);
     digitalWrite(30, HIGH);
     while(obstacle[0] < x_safe){
-      leftspeed_t = 100;
-      rightspeed_t = 100;
+      analogWrite(8, 150);
+      analogWrite(7, 150);
+      delay(100);
     }
     digitalWrite(24, LOW);
     digitalWrite(26, LOW);
@@ -351,10 +369,33 @@ void strategy(){
     digitalWrite(26, HIGH);
     digitalWrite(28, LOW);
     digitalWrite(30, HIGH);
-    leftspeed_t = 100;
-    rightspeed_t = 100;
   }
-  if(obstacle[1] < x_safe){
+  else if(obstacle[0] < x_safe){
+    digitalWrite(24, LOW);
+    digitalWrite(26, LOW);
+    digitalWrite(28, LOW);
+    digitalWrite(30, LOW);
+    delay(100);
+    digitalWrite(24, HIGH);
+    digitalWrite(26, LOW);
+    digitalWrite(28, LOW);
+    digitalWrite(30, HIGH);
+    while(obstacle[0] < x_safe){
+      analogWrite(8, 150);
+      analogWrite(7, 150);
+      delay(100);
+    }
+    digitalWrite(24, LOW);
+    digitalWrite(26, LOW);
+    digitalWrite(28, LOW);
+    digitalWrite(30, LOW);
+    delay(100);
+    digitalWrite(24, LOW);
+    digitalWrite(26, HIGH);
+    digitalWrite(28, LOW);
+    digitalWrite(30, HIGH);
+  }
+  else if(obstacle[1] < x_safe){
     digitalWrite(24, LOW);
     digitalWrite(26, LOW);
     digitalWrite(28, LOW);
@@ -365,8 +406,9 @@ void strategy(){
     digitalWrite(24, LOW);
     digitalWrite(26, HIGH);
     while(obstacle[1] < x_safe){
-      leftspeed_t = 100;
-      rightspeed_t = 100;
+      analogWrite(8, 150);
+      analogWrite(7, 150);
+      delay(100);
     }
     digitalWrite(24, LOW);
     digitalWrite(26, LOW);
@@ -377,8 +419,10 @@ void strategy(){
     digitalWrite(26, HIGH);
     digitalWrite(28, LOW);
     digitalWrite(30, HIGH);
-    leftspeed_t = 100;
-    rightspeed_t = 100;
+  }
+  else{
+      analogWrite(8, 150);
+      analogWrite(7, 150);
   }
 /*    int flag = 0;
     while(flag ==0 || obstacle[3]< lateral_safe){
@@ -398,6 +442,21 @@ void strategy(){
 }
 
 void IMU(){
+  while (Serial2.available()) 
+  {
+    JY901.CopeSerialData(Serial2.read()); //Call JY901 data cope function
+    theta_r=JY901.stcAngle.Angle[2]/32768*180;
+    if(flag_theta<20){
+      theta_cor =theta_cor+theta_r;
+      flag_theta++;
+    }
+    else if(flag_theta=20){
+      theta_cor =theta_cor/20;
+      Serial.print("Yaw Initialization Finished! Yaw is:");
+      Serial.println(theta_cor);
+      flag_theta++;
+    }
+  }
 }
 
 void controlsense(){
@@ -417,12 +476,8 @@ void loop(){
   while(control == true){
     humancontrol();
   }
+    Serial.println(1);
   strategy();
-  if(bTag_50ms==true){
-    sensor();
-    speedPID();
-    bTag_50ms = false;
-  }
   if(bTag_30ms==true){
     IMU();
     bTag_30ms = false;
